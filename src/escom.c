@@ -31,8 +31,9 @@
 //                                                                                                  *
 // Revision    Auth.  Remarks									    *
 // ----------  -----  ----------------------------------------------------------------------------- *
-// 18-12-2020  ES     Version 0.0,  First set-up.						    *
-// 24-12-2020  ES     Version 0.1,  Added recursive include.					    *
+// 18-12-2020  ES     Version 0.0,	First set-up.						    *
+// 24-12-2020  ES     Version 0.1,  	Added recursive include.				    *
+// 26-12-2020  ES     Version 0.1.1,	Added #cd command.					    *
 //***************************************************************************************************
 #include <stdio.h>	// Console I/O
 #include <stdlib.h>	// Standard library definitions
@@ -43,7 +44,7 @@
 #include <windows.h>	// Windows specifics
 
 // Constants:
-#define VERSION "0.1"					// The version number
+#define VERSION "0.1.1"					// The version number
 // Some textcolors
 #define GREEN   ( FOREGROUND_GREEN | FOREGROUND_INTENSITY )
 #define YELLOW  ( FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_INTENSITY )
@@ -58,7 +59,7 @@ struct dict_t						// Dictionary entry
 // Global variables
 char          device[32] = "COM5" ;			// Default serial port for target connection
 char          target[32] = "stm8ef" ;			// Default target system
-int           baudrate = 115200 ;			// Default baudrate for communication
+int           baudrate = 9600 ;				// Default baudrate for communication
 char          path[128] = ".;./mcu;./lib" ;		// Default search path for #i and #r	
 HANDLE        hConsoleOut ;				// Handle for console output
 HANDLE        hConsoleIn ;				// Handle for console input
@@ -122,6 +123,25 @@ void text_attr ( WORD attr )
 
 
 //***************************************************************************************************
+//				U S E R _ E R R O R						    *
+//***************************************************************************************************
+// Show error on console in red.								    *
+//***************************************************************************************************
+void user_error ( const char* format, ... )
+{
+  static char sbuf[64] ;				// For text with error
+  va_list     varArgs ; 				// For variable number of params
+
+  va_start ( varArgs, format ) ;			// Prepare parameters
+  vsnprintf ( sbuf, sizeof(sbuf), format, varArgs ) ;	// Format the message
+  va_end ( varArgs ) ;					// End of using parameters
+  text_attr ( RED ) ;					// Print error in red
+  printf ( "%s!\n", sbuf ) ;				// Show error
+  text_attr ( 0 ) ;					// Back to normal colors
+}
+
+
+//***************************************************************************************************
 //			T O K E N I Z E _ C O N F _ F I L E					    *
 //***************************************************************************************************
 // Parse the options in the config file.							    *
@@ -145,7 +165,7 @@ void tokenize_conf_file()
   fp = fopen ( filepath, "r" ) ;			// Open the file
   if ( fp == NULL)					// Success?
   {
-    printf ( "Unable to open %s!\n", filepath ) ;	// No, show error
+    user_error ( "Unable to open %s", filepath ) ;	// No, show error
     return ;
   }
   tokc = 0 ;						// Number of tokens
@@ -215,7 +235,7 @@ void parse_options ( int argc, char* argv[] )
         }
         else
         {
-          printf ( "Illegal baudrate %d in option!\n", b ) ;	// No, warning
+          user_error ( "Illegal baudrate %d in option", b ) ;	// No, warning
         }
         break;
       case 't':							// Target system?
@@ -273,7 +293,7 @@ BOOL open_port ( const char* port )
 
   if ( hcom == INVALID_HANDLE_VALUE )			// Check result
   {
-    printf ( "Error in opening %s", port ) ;		// No success
+    user_error ( "Error in opening %s", port ) ;	// No success
     return FALSE ;
   }
   dcbParams.DCBlength = sizeof(dcbParams) ;		// Set size
@@ -397,17 +417,6 @@ int readcom ( char* buf, DWORD maxlen, int maxtry )
 }
 
 
-void dumpo ( const char* id, const char* bf )
-{
-  printf ( "%s: ", id ) ;
-  while ( *bf )
-  {
-    printf ( "%02X ", *bf++ ) ;
-  }
-  printf ( "\n" ) ;
-}
-
-
 //***************************************************************************************************
 //					E C H O F I L T E R					    *
 //***************************************************************************************************
@@ -456,7 +465,7 @@ BOOL ListDirectoryContents ( const char* sDir )
   hFind = FindFirstFile ( sPath, &fdFile ) ;		// Find first file
   if ( hFind == INVALID_HANDLE_VALUE )			// Check result
   {
-    printf ( "Path not found: [%s]\n", sDir ) ;		// Error!
+    user_error ( "Path not found: [%s]", sDir ) ;	// Error!
     return FALSE ;
   }
   print_sep() ;						// Print separation line
@@ -472,9 +481,6 @@ BOOL ListDirectoryContents ( const char* sDir )
       // Is the entity a File or Folder?
       if ( fdFile.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY )
       {
-        // sprintf ( sPath, "%s\\%s", sDir, fdFile.cFileName ) ;
-        // printf ( "Directory: %s\n", sPath ) ;
-        // ListDirectoryContents ( sPath ) ;		// Recursion!
         printf ( "%-20.20s    <dir>\n",			// Print directory name
                  fdFile.cFileName ) ;
       }
@@ -634,7 +640,6 @@ int search_dict ( const char* symbol )
 }
 
 
-
 //***************************************************************************************************
 //				L O A D _ C P U _ R E S O U R C E S				    *
 //***************************************************************************************************
@@ -651,9 +656,7 @@ BOOL load_cpu_res ( const char* filespec )
   fp = fopen ( filespec, "r" ) ;			// Open the file
   if ( fp == NULL)					// Success?
   {
-    text_attr ( RED ) ;					// Print error in red
-    printf ( "Unable to open %s!\n", filespec ) ;	// No, show error
-    text_attr ( 0 ) ;					// Normal colors
+    user_error ( "Unable to open %s", filespec ) ;	// No, show error
     return FALSE ;
   }
   while ( fgets ( line, sizeof(line), fp ) != NULL )	// Read next line from file
@@ -743,7 +746,7 @@ BOOL handle_res ( const char* line )
     p = search_file ( cpu ) ;				// Search file in path
     if ( p == NULL )					// Check if file exists
     {
-      printf ( "%s not found\n", cpu ) ;		// Not existing, show error
+      user_error ( "%s not found", cpu ) ;		// Not existing, show error
       result = FALSE ;					// Return bad result
     }
     else
@@ -829,9 +832,7 @@ BOOL include_file ( const char* filename, BOOL conditional )
   }
   if ( fp == NULL)					// Success?
   {
-    text_attr ( RED ) ;					// Print error in red
-    printf ( "Unable to open %s!\n", filename ) ;	// No, show error
-    text_attr ( 0 ) ;					// Normal colors
+    user_error ( "Unable to open %s", filename ) ;	// No, show error
     return FALSE ;
   }
   if ( conditional )					// Was it an "require"
@@ -925,8 +926,7 @@ BOOL include_file ( const char* filename, BOOL conditional )
         printf ( "%s", line ) ;				// Print result
         if ( strchr ( line, 0x07 ) )			// BELL in the string means error
         {
-          text_attr ( RED ) ;				// Print error in red
-          printf ( "\nError, abort upload!\n" ) ;	// Show error
+          user_error ( "\nError, abort upload" ) ;	// Show error
           break ;
         }
       }
@@ -957,7 +957,7 @@ BOOL show_file ( const char* filename )
   fp = fopen ( filename, "r" ) ;			// Open the file
   if ( fp == NULL)					// Success?
   {
-    printf ( "Unable to open %s!\n", filename ) ;	// No, show error
+    user_error ( "Unable to open %s", filename ) ;	// No, show error
     return FALSE ;
   }
   print_sep() ;						// Print separation line
@@ -978,7 +978,9 @@ BOOL show_file ( const char* filename )
 // Handle console commands starting with "#".							    *
 // The next commands are supported:								    *
 //   "ls"      -- List the files in the current directory.					    *
+//   "dir"     -- Same as "ls".									    *
 //   "cat"     -- Show a file.									    *
+//   "cd"      -- Change working directory.							    *
 //   "include" -- Include file.  Send file to serial port.					    *
 //   "i"       -- Same as "include".								    *
 //   "require" -- Insert file if word does not yet exist on the target device.			    *
@@ -988,9 +990,11 @@ void handle_special ( const char* command )
 {
   const char* p ;					// Pointer to 2nd token
   char        dir[128] = "." ;				// Default directory
+  const char* fm = "Filename missing" ;			// Common error
 
-  p = gettoken ( command, 1 ) ;				// Get parameter (=filename)
-  if ( strstr ( command, "ls" ) == command )		// "ls" command?
+  p = gettoken ( command, 1 ) ;				// Get parameter (path/filename)
+  if ( ( strstr ( command, "ls" ) == command ) ||	// "ls" command?
+       ( strstr ( command, "dir" ) == command ) )	// or "dir" command?
   {
     if ( p )						// Yes, directory given?
     {
@@ -998,6 +1002,14 @@ void handle_special ( const char* command )
     }
     strcat ( dir, "\\" ) ;				// Add backslash
     ListDirectoryContents ( dir ) ;			// Yes, list files on this directory
+  }
+  else if ( strstr ( command, "cd" ) == command )	// "cd" command?
+  {
+    if ( ( p == NULL ) ||				// Yes, directory given?
+         ( ! SetCurrentDirectory ( p ) ) )		// Yes, try to change directory
+    {
+      user_error ( "Directory does not exist" ) ;	// Did not work
+    }
   }
   else if ( strstr ( command, "i" )  == command )	// "include" command?
   {
@@ -1007,7 +1019,7 @@ void handle_special ( const char* command )
     }
     else
     {
-      printf ( "Filename missing!\n" ) ;		// No, show error
+      user_error ( fm ) ;				// No, show error
     }
   }
   else if ( strstr ( command, "r" ) == command )	// "r" or "require" command?
@@ -1018,7 +1030,7 @@ void handle_special ( const char* command )
     }
     else
     {
-      printf ( "Filename missing!\n" ) ;		// No, show error
+      user_error ( fm ) ;				// No, show error
     }
   }
   else if ( strstr ( command, "cat" ) == command )	// "cat" command?
@@ -1029,7 +1041,7 @@ void handle_special ( const char* command )
     }
     else
     {
-      printf ( "Filename missing!\n" ) ;		// No, show error
+      user_error ( fm ) ;				// No, show error
     }
   }
   writecom ( "\r" ) ;					// Force Forth prompt
@@ -1099,6 +1111,10 @@ int main ( int argc, char* argv[] )
       {
         handle_special ( inbuf + 1 ) ;			// Yes, handle it
         continue ;
+      }
+      else if ( inbuf[0] == '\\' )			// Special input?
+      {
+        break ;						// End program
       }
       writecom ( inbuf ) ; 				// Forward to serial output
     }
