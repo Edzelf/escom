@@ -1,8 +1,8 @@
 # escom
-Communication for small Forth devices
+Communication for small Forth devices.
 Like e4thcom, but it will run under Windows.
 
-escom is a terminal program that runs under Windows.  It can be used for communicating with an embedded Forth system, like the stm8ef for the STM8 family.
+escom is a terminal program that runs under Windows.  It can be used for communicating with an embedded Forth system, like the stm8ef for the STM8 family.  The connection between the WIndows computer and the target Forth system is trhrough a USB to Serial converter.
 
 escom is based on e4thcom by Manfred Mahlow.  The program was converted to C for Windows compatibility.	
 
