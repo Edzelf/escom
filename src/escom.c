@@ -65,7 +65,7 @@ char          path[128] = ".;./mcu;./lib" ;		// Default search path for #i and #
 HANDLE        hConsoleOut ;				// Handle for console output
 HANDLE        hConsoleIn ;				// Handle for console input
 HANDLE        hcom ;					// Handle for serial I/O
-BOOL          ( *ok_chk ) ( const char* buf ) ;		// Check for reply string from target
+char*         ( *ok_chk ) ( char* buf ) ;		// Check reply string from target
 int           tokc ;					// Number of tokens in tokv
 char*         tokv[32] ;				// Tokens in config file
 struct dict_t dictionary[1000] ;			// Escom dictionary
@@ -509,13 +509,18 @@ BOOL ListDirectoryContents ( const char* sDir )
 // Check for "ok\n" at the end of the line.							    *
 // Version for stm8e.										    *
 //***************************************************************************************************
-BOOL check_ok_stm8e ( const char* buf )
+char* check_ok_stm8e ( char* buf )
 {
-  buf += strlen ( buf ) - 3 ;				// Points to end of string - 3
-  return ( ( tolower ( *buf++ ) == 'o' ) &&		// Ends with "ok" or "OK"?
-           ( tolower ( *buf++ ) == 'k' ) &&
-           ( *buf == '\n' )
-         ) ;
+  char* res ;						// Function result
+
+  res = buf += strlen ( buf ) - 3 ;			// Points to end of string - 3
+  if ( ( tolower ( *buf++ ) != 'o' ) ||		        // Ends with "ok" or "OK"?
+       ( tolower ( *buf++ ) != 'k' ) ||
+       ( *buf != '\n' ) )
+  {
+    res = NULL ;					// Not expected end
+  }
+  return res ;
 }
 
 
@@ -525,39 +530,45 @@ BOOL check_ok_stm8e ( const char* buf )
 // Check for "ok\n" at the end of the line.							    *
 // Version for mecrisp.										    *
 //***************************************************************************************************
-BOOL check_ok_mecrisp ( const char* buf )
+char* check_ok_mecrisp ( char* buf )
 {
-  buf += strlen ( buf ) - 4 ;				// Points to end of string - 3
-  return ( ( tolower ( *buf++ ) == 'o' ) &&		// Ends with "ok." or "OK."?
-           ( tolower ( *buf++ ) == 'k' ) &&
-           ( *buf++ == '.' ) &&
-           ( *buf == '\n' )
-         ) ;
+  char* res ;						// Function result
+
+  res = ( buf += strlen ( buf ) - 4 ) ;			// Points to end of string - 4
+  if ( ( tolower ( *buf++ ) != 'o' ) ||		        // Ends with "ok" or "OK"?
+       ( tolower ( *buf++ ) != 'k' ) ||
+       ( *buf++ != '.' ) ||
+       ( *buf != '\n' ) )
+  {
+    res = NULL ;					// Not expected end
+  }
+  return res ;
 }
 
 
 //***************************************************************************************************
 //					B E A U T I F Y						    *
 //***************************************************************************************************
-// Shift the "ok\n" at the end of the line to the right margin.					    *
+// Shift the "ok[.]\n" at the end of the line to the right margin.				    *
 //***************************************************************************************************
 void beautify ( char* buf, int margin )
 {
-  int len ;						// Length of string
+  char   okbuf[8] ;					// Last part of string
+  int    lenok  ;					// Length of last part
+  int    len ;						// Length of string
+  char*  p ;						// Will point to "ok" in string
+  int    n ;						// Number of bytes to move
 
-  len = strlen ( buf ) ;				// Get length
-  if ( ( tolower ( buf[len-3] ) == 'o' ) &&		// Ends with "ok" or "OK"?
-       ( tolower ( buf[len-2] ) == 'k' ) &&
-       ( buf[len-1] == '\n' ) )
+  if ( ( p = ok_chk ( buf ) ) )				// Ends with "ok" phrase?
   {
-    while ( ( len = strlen ( buf ) ) < margin )		// Shift "ok" to the right
+    strcpy ( okbuf, p ) ;				// Yes, save last part
+    lenok = strlen ( okbuf ) ;				// Get length of last part
+    *p = '\0' ;						// Shorten first part			
+    while ( ( strlen ( buf ) + lenok ) < margin )	// Shift "ok" phrase to the right
     {
-      buf[len+1] = '\0' ;				// New delimeter
-      buf[len]   = buf[len-1] ;				// Shift the "\n"
-      buf[len-1] = buf[len-2] ;				// shift the "k"
-      buf[len-2] = buf[len-3] ;				// shift the "o"
-      buf[len-3] = ' ' ;				// Insert a space
+      strcat ( buf, " " ) ;				// Extend first part by one space
     }
+    strcat ( buf, okbuf ) ;				// Add last part
   }
 }
 
@@ -1091,7 +1102,7 @@ void set_target_specials()
 {
   // Set the check function for the "OK" replay of the target.
   ok_chk = &check_ok_stm8e ;				// Assume target is "stm8ef"
-  if ( strcasecmp ( target, "mecrisp" ) )		// Target is "mecrisp" ?
+  if ( strcasecmp ( target, "mecrisp" ) == 0 )		// Target is "mecrisp" ?
   {
     ok_chk = &check_ok_mecrisp ;			// Yes, use mecrist version
   }
