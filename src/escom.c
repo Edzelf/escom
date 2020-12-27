@@ -13,10 +13,10 @@
 // Save the resulting executive in a directory that is in your %PATH% for easy access.		    *
 // Written by Ed Smallenburg.                                                                       *
 // Todo:											    *
-//   - Now, only target "stm8ef" is supported.  Add other platforms.				    *  
+//   - Now, targets "stm8ef" and "mecrisp" are supported.  Add other platforms.			    *  
 //***************************************************************************************************
 // Command line options:									    *
-//  -t xxxx	-- Target system, only "stm8ef" is currently supported.			    	    *
+//  -t xxxx	-- Target system, "stm8ef" and "mecrisp" are currently supported.	    	    *
 //  -d xxxx	-- Communication device, for example "COM5".					    *
 //  -b xxxx	-- Baudrate for communication, for example 115200.				    *
 //  -p xxxx	-- Search path for #include, #require and \res files.				    *
@@ -34,6 +34,7 @@
 // 18-12-2020  ES     Version 0.0,	First set-up.						    *
 // 24-12-2020  ES     Version 0.1,  	Added recursive include.				    *
 // 26-12-2020  ES     Version 0.1.1,	Added #cd command.					    *
+// 27-12-2020  ES     Version 0.1.2,	Added mecrisp support.					    *
 //***************************************************************************************************
 #include <stdio.h>	// Console I/O
 #include <stdlib.h>	// Standard library definitions
@@ -44,7 +45,7 @@
 #include <windows.h>	// Windows specifics
 
 // Constants:
-#define VERSION "0.1.1"					// The version number
+#define VERSION "0.1.2"					// The version number
 // Some textcolors
 #define GREEN   ( FOREGROUND_GREEN | FOREGROUND_INTENSITY )
 #define YELLOW  ( FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_INTENSITY )
@@ -64,6 +65,7 @@ char          path[128] = ".;./mcu;./lib" ;		// Default search path for #i and #
 HANDLE        hConsoleOut ;				// Handle for console output
 HANDLE        hConsoleIn ;				// Handle for console input
 HANDLE        hcom ;					// Handle for serial I/O
+BOOL          ( *ok_chk ) ( const char* buf ) ;		// Check for reply string from target
 int           tokc ;					// Number of tokens in tokv
 char*         tokv[32] ;				// Tokens in config file
 struct dict_t dictionary[1000] ;			// Escom dictionary
@@ -500,6 +502,38 @@ BOOL ListDirectoryContents ( const char* sDir )
   return TRUE ;
 }
 
+
+//***************************************************************************************************
+//				C H E C K _ O K _ S T M 8 E					    *
+//***************************************************************************************************
+// Check for "ok\n" at the end of the line.							    *
+// Version for stm8e.										    *
+//***************************************************************************************************
+BOOL check_ok_stm8e ( const char* buf )
+{
+  buf += strlen ( buf ) - 3 ;				// Points to end of string - 3
+  return ( ( tolower ( *buf++ ) == 'o' ) &&		// Ends with "ok" or "OK"?
+           ( tolower ( *buf++ ) == 'k' ) &&
+           ( *buf == '\n' )
+         ) ;
+}
+
+
+//***************************************************************************************************
+//				C H E C K _ O K _ M E C R I S P					    *
+//***************************************************************************************************
+// Check for "ok\n" at the end of the line.							    *
+// Version for mecrisp.										    *
+//***************************************************************************************************
+BOOL check_ok_mecrisp ( const char* buf )
+{
+  buf += strlen ( buf ) - 4 ;				// Points to end of string - 3
+  return ( ( tolower ( *buf++ ) == 'o' ) &&		// Ends with "ok." or "OK."?
+           ( tolower ( *buf++ ) == 'k' ) &&
+           ( *buf++ == '.' ) &&
+           ( *buf == '\n' )
+         ) ;
+}
 
 
 //***************************************************************************************************
@@ -1049,6 +1083,22 @@ void handle_special ( const char* command )
 
 
 //***************************************************************************************************
+//				S E T _ T A R G E T _ S P E C I A L S				    *
+//***************************************************************************************************
+// Set target dependant stuff.									    *
+//***************************************************************************************************
+void set_target_specials()
+{
+  // Set the check function for the "OK" replay of the target.
+  ok_chk = &check_ok_stm8e ;				// Assume target is "stm8ef"
+  if ( strcasecmp ( target, "mecrisp" ) )		// Target is "mecrisp" ?
+  {
+    ok_chk = &check_ok_mecrisp ;			// Yes, use mecrist version
+  }
+}
+
+
+//***************************************************************************************************
 //					M A I N							    *
 //***************************************************************************************************
 // Start of the main program.									    *
@@ -1065,6 +1115,7 @@ int main ( int argc, char* argv[] )
   tokenize_conf_file() ;				// Read option in config file
   parse_options ( tokc, tokv ) ;			// Parse config options
   parse_options ( argc, argv ) ;			// Parse commandline options
+  set_target_specials() ;				// Set target dependant things
   text_attr ( YELLOW ) ;				// Yellow text
   printf (
       "escom-" VERSION " : "				// Show startup info
