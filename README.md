@@ -15,4 +15,5 @@ The escom program can also be used to upload sourcecode to the target system.  T
 As imbedded system often use symbolic names for the various I/O registers, escom has -just like e4thcom- the capability to make use of these symbolic name in the source code.
 
 See the document in the "doc" directory for details.
+
 21-12-2021, ES: Allow non standard baudrates.
