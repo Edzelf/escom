@@ -35,6 +35,7 @@
 // 24-12-2020  ES     Version 0.1,  	Added recursive include.				    *
 // 26-12-2020  ES     Version 0.1.1,	Added #cd command.					    *
 // 27-12-2020  ES     Version 0.1.2,	Added mecrisp support.					    *
+// 21-12-2021  ES     Version 0.1.3,	Accept all baudrates.					    *
 //***************************************************************************************************
 #include <stdio.h>	// Console I/O
 #include <stdlib.h>	// Standard library definitions
@@ -45,7 +46,7 @@
 #include <windows.h>	// Windows specifics
 
 // Constants:
-#define VERSION "0.1.2"					// The version number
+#define VERSION "0.1.3"					// The version number
 // Some textcolors
 #define GREEN   ( FOREGROUND_GREEN | FOREGROUND_INTENSITY )
 #define YELLOW  ( FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_INTENSITY )
@@ -208,8 +209,8 @@ void parse_options ( int argc, char* argv[] )
   int         baudrates[] = { CBR_9600,   CBR_14400,		// Allowed baudrates
                               CBR_19200,  CBR_38400,
                               CBR_56000,  CBR_57600,
-                              CBR_115200, CBR_128000 } ;
-  int b ;							// Baudrate in option
+                              CBR_115200, CBR_128000,
+                              CBR_256000 } ;
 
   optind = 1 ;							// Start with first option
   while ( ( optchar = getopt ( argc, argv, opts ) ) != -1 )	// Get next option
@@ -220,24 +221,21 @@ void parse_options ( int argc, char* argv[] )
         strncpy ( device, optarg, sizeof(device) - 1 ) ;	// Yes set device
         break;
       case 'b' :						// Baudrate?
-        b = atoi ( optarg ) ;					// Yes, get value
+        baudrate = atoi ( optarg ) ;				// Yes, get value
         int n = sizeof(baudrates) / sizeof(int) ;		// Number of possible baudrates
         BOOL found = FALSE ;					// Assume not found
         for ( int i = 0 ; i < n ; i++ )				// Check for legal baudrate
         {
-          if ( b == baudrates[i] )				// Equal to this entry?
+          if ( baudrate == baudrates[i] )			// Equal to this entry?
           {
             found = TRUE ;					// Yes, mark as found
             break ;						// No need to continue
           }
         }
-        if ( found )						// Legal baudrate found?
-        { 
-          baudrate = b ;					// Yes, set baudrate
-        }
-        else
+        if ( ! found )						// Legal baudrate found?
         {
-          user_error ( "Illegal baudrate %d in option", b ) ;	// No, warning
+          user_error ( "Unofficial baudrate %d in option",	// No, warning
+	                baudrate ) ;
         }
         break;
       case 't':							// Target system?
@@ -1134,7 +1132,7 @@ int main ( int argc, char* argv[] )
       "Embedded Forth Systems.\n" ) ;
   text_attr ( 0 ) ;					// Normal text
   printf (
-      "Copyright (C) 2020 Ed Smallenburg. "
+      "Copyright (C) 2021 Ed Smallenburg. "
       "This is free software under the\n"
       "conditions of the GNU General Public License "
       "with ABSOLUTELY NO WARRANTY.\n\n" ) ;
