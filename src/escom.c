@@ -13,10 +13,10 @@
 // Save the resulting executive in a directory that is in your %PATH% for easy access.		    *
 // Written by Ed Smallenburg.                                                                       *
 // Todo:											    *
-//   - Now, targets "stm8ef" and "mecrisp" are supported.  Add other platforms.			    *  
+//   - Now, targets "stm8ef", "mecrisp", and "zepto" are supported.  Add other platforms.	    *  
 //***************************************************************************************************
 // Command line options:									    *
-//  -t xxxx	-- Target system, "stm8ef" and "mecrisp" are currently supported.	    	    *
+//  -t xxxx	-- Target system, "stm8ef", "mecrisp", and "zepto" are currently supported.	    *
 //  -d xxxx	-- Communication device, for example "COM5".					    *
 //  -b xxxx	-- Baudrate for communication, for example 115200.				    *
 //  -p xxxx	-- Search path for #include, #require and \res files.				    *
@@ -536,6 +536,28 @@ char* check_ok_mecrisp ( char* buf )
   if ( ( tolower ( *buf++ ) != 'o' ) ||		        // Ends with "ok" or "OK"?
        ( tolower ( *buf++ ) != 'k' ) ||
        ( *buf++ != '.' ) ||
+       ( *buf != '\n' ) )
+  {
+    res = NULL ;					// Not expected end
+  }
+  return res ;
+}
+
+
+//***************************************************************************************************
+//				C H E C K _ O K _ S T M 8 E					    *
+//***************************************************************************************************
+// Check for "ok\r\n" at the end of the line.							    *
+// Version for zepto.										    *
+//***************************************************************************************************
+char* check_ok_zepto ( char* buf )
+{
+  char* res ;						// Function result
+
+  res = buf += strlen ( buf ) - 3 ;			// Points to end of string - 3
+  if ( ( *buf++ != 'o' ) ||         		        // Ends with "ok"?
+       ( *buf++ != 'k' ) ||
+       ( *buf++ != '\r' ) ||
        ( *buf != '\n' ) )
   {
     res = NULL ;					// Not expected end
@@ -1103,6 +1125,10 @@ void set_target_specials()
   if ( strcasecmp ( target, "mecrisp" ) == 0 )		// Target is "mecrisp" ?
   {
     ok_chk = &check_ok_mecrisp ;			// Yes, use mecrist version
+  }
+  if ( strcasecmp ( target, "zepto" ) == 0 )            // Target is "zepto" ?
+  {
+    ok_chk = &check_ok_zepto ;                          // Yes, use zeptoforth version
   }
 }
 
