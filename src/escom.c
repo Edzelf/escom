@@ -554,7 +554,7 @@ char* check_ok_zepto ( char* buf )
 {
   char* res ;						// Function result
 
-  res = buf += strlen ( buf ) - 3 ;			// Points to end of string - 3
+  res = buf += strlen ( buf ) - 4 ;			// Points to end of string - 3
   if ( ( *buf++ != 'o' ) ||         		        // Ends with "ok"?
        ( *buf++ != 'k' ) ||
        ( *buf++ != '\r' ) ||
