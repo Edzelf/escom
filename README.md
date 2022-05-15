@@ -17,3 +17,4 @@ As imbedded system often use symbolic names for the various I/O registers, escom
 See the document in the "doc" directory for details.
 
 21-12-2021, ES: Allow non standard baudrates.
+15-05-2022, ES: Added zepto support, thanks to tabeman.
